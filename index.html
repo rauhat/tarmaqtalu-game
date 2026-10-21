@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="kk"><head><meta charset="utf-8"><title>Код Даласы 2: Тармақталған алгоритм</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--p:rgba(14,22,38,.94);--f:#fff;--a:#ffd23f;--g:#4ade80}
+html,body{height:100%;margin:0;background:#87ceeb;font-family:system-ui,sans-serif;color:var(--f);overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+.ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,14,26,.82);z-index:5;padding:12px;box-sizing:border-box}
+.card{background:var(--p);border:3px solid var(--a);border-radius:6px;padding:18px;max-width:640px;width:100%;max-height:92%;overflow:auto;box-sizing:border-box}
+h2{margin:0 0 8px;color:var(--a)}button{background:var(--g);color:#052;border:0;padding:9px 16px;font-weight:700;border-radius:4px;cursor:pointer;margin:4px 4px 0 0;font-size:15px}
+textarea{width:100%;height:150px;background:#0a1220;color:#9ef;border:2px solid #345;font:15px monospace;box-sizing:border-box;padding:8px;tab-size:4}
+pre{background:#0a1220;padding:8px;margin:6px 0;white-space:pre-wrap;color:#cfe;font-size:14px}
+#hud{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:10px;font-size:22px;text-shadow:0 2px 3px #000;z-index:2}
+#cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;background:#fff;border:1px solid #000;z-index:2}
+#msg{position:fixed;bottom:calc(30px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;font-size:20px;text-shadow:0 2px 3px #000;z-index:2}
+#deaths{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;font-size:26px;text-shadow:0 2px 3px #000;z-index:2;background:rgba(0,0,0,.4);padding:2px 12px;border-radius:6px}@keyframes pop{50%{transform:scale(1.6)}}.hide{display:none!important}.ok{color:var(--g)}.bad{color:#f87171}
+</style></head><body>
+<div id="deaths" class="hide"></div><div id="hud"></div><div id="cross"></div><div id="msg"></div>
+<div id="intro" class="ov"><div class="card"><h2>⭐ Код Даласы 2: Тармақ тасы</h2>
+<p>Логика аралындағы <b>Тармақ тасын</b> зұлым құбыжықтар үш бөлікке бөліп, үш жолға жасырды: 🌲 <b>Орман</b> (батыс), 🏜️ <b>Шөл</b> (шығыс), ❄️ <b>Қар</b> (солтүстік). Қай жолмен бірінші баратыныңды өзің таңда! Тармақталған алгоритмді (<b>if / elif / else</b>) Python-да жазып, 10 тапсырманы шеш, 10 жұлдызды жина.</p>
+<p><b>WASD</b> — жүру · <b>Бос орын</b> — секіру · <b>Тышқан</b> — қарау · <b>Басу / F</b> — соққы (құбыжықтың үстіне секіруге де болады) · <b>E</b> — терминал. ⚠️ Құлап кетсең — 1 жүрек кетеді!</p>
+<button id="go">Бастау</button></div></div>
+<div id="panel" class="ov hide"><div class="card"><h2 id="tt"></h2><p id="td"></p><pre id="th"></pre>
+<textarea id="code" spellcheck="false"></textarea><div><button id="run">▶ Іске қосу</button><button id="chk">✔ Тексеру</button><button id="hint">💡 Көмек</button><button id="cl" style="background:#cbd5e1">Жабу</button></div><pre id="out"></pre></div></div>
+<div id="win" class="ov hide"><div class="card"><h2>🏆 Жеңіс!</h2><p>Сен 10 жұлдызды жинап, Тармақ тасын құтқардың! Тармақталған алгоритмді меңгердің. Тамаша, кодер!</p><p id="wd"></p><p style="font-size:30px">⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐</p></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+/* ---------- Python-тың шағын интерпретаторы (if/elif/else, print, айнымалылар) ---------- */
+function py(code,vars){const out=[],S={...vars};
+const L=code.split('\n').map((s,i)=>({n:i+1,i:s.match(/^ */)[0].length,t:s.trim()})).filter(l=>l.t&&l.t[0]!='#');
+const tr=s=>s.replace(/("[^"]*"|'[^']*')|\band\b|\bor\b|\bnot\b|\bTrue\b|\bFalse\b/g,(m,q)=>q||({and:'&&',or:'||',not:'!',True:'true',False:'false'})[m]);
+const ev=(s,n)=>{try{return new Function('S','with(S){return('+tr(s)+')}')(S)}catch(e){throw Error(n+'-жол: '+e.message)}};
+const f=v=>v===true?'True':v===false?'False':String(v);
+const body=(k,ind,on)=>{if(!L[k+1]||L[k+1].i<=ind)throw Error(L[k].n+'-жол: «:» кейін шегініп код жазыңыз');return blk(k+1,L[k+1].i,on)};
+function blk(k,ind,on){while(k<L.length&&L[k].i>=ind){const l=L[k],t=l.t;let m;
+if(l.i>ind)throw Error(l.n+'-жол: шегініс (indent) қате');
+if(m=t.match(/^if (.+):$/)){let c=on&&!!ev(m[1],l.n),done=c;k=body(k,ind,c);
+while(k<L.length&&L[k].i==ind&&(m=L[k].t.match(/^(elif (.+)|else):$/))){const c2=on&&!done&&(m[2]?!!ev(m[2],L[k].n):true);k=body(k,ind,c2);done=done||c2}}
+else if(m=t.match(/^print\((.*)\)$/)){if(on)out.push(ev('['+m[1]+']',l.n).map(f).join(' '));k++}
+else if(m=t.match(/^([A-Za-z_]\w*)\s*([+\-*]?)=(?!=)\s*(.+)$/)){if(on){const v=ev(m[3],l.n);S[m[1]]=m[2]?new Function('a','b','return a'+m[2]+'b')(S[m[1]],v):v}k++}
+else if(t=='pass')k++;
+else throw Error(l.n+'-жол: түсініксіз команда «'+t+'»')}return k}
+blk(0,0,true);return out.join('\n')}
+/* ---------- Тапсырмалар ---------- */
+const TASKS=[
+{t:'1-тапсырма: Қарапайым if',d:'x саны 0-ден үлкен болса «Оң» деп шығар. Әйтпесе ештеңе шығарма (else керек емес).',v:'x',tests:[5,-2,0,100],exp:x=>x>0?'Оң':'',start:'if x > 0:\n    ',hint:'if шарт:  жолынан кейін 4 бос орынмен шегініп print("Оң") жазыңыз.'},
+{t:'2-тапсырма: Орман дүкені',d:'money — қалтадағы ақша. money ≥ 500 болса «Сатып ал», әйтпесе «Жетпейді» деп шығар.',v:'money',tests:[800,500,499,0],exp:m=>m>=500?'Сатып ал':'Жетпейді',start:'if money >= 500:\n    \nelse:\n    ',hint:'≥ белгісі Python-да >= түрінде жазылады.'},
+{t:'3-тапсырма: Жұп па, тақ па?',d:'n жұп сан болса «Жұп», әйтпесе «Тақ» деп шығар. Жұп сан: n % 2 == 0',v:'n',tests:[4,7,0,13],exp:n=>n%2==0?'Жұп':'Тақ',start:'',hint:'% — қалдық. Тең екенін == арқылы тексереміз (екі тең белгісі).'},
+{t:'4-тапсырма: Жас кезеңі',d:'age < 7 болса «Балабақша», age ≤ 17 болса «Мектеп», әйтпесе «Ересек» деп шығар.',v:'age',tests:[5,7,17,18,40],exp:a=>a<7?'Балабақша':a<=17?'Мектеп':'Ересек',start:'if age < 7:\n    \nelif age <= 17:\n    \nelse:\n    ',hint:'if, elif, else — үш тармақ. else-ке шарт жазылмайды.'},
+{t:'5-тапсырма: Шөл базары (and)',d:'h — сағат. h 9-дан бастап 18-ге дейін (18 кірмейді) «Ашық», әйтпесе «Жабық» деп шығар.',v:'h',tests:[8,9,12,17,18,23],exp:h=>h>=9&&h<18?'Ашық':'Жабық',start:'',hint:'Екі шартты and-пен біріктіріңіз: h >= 9 and h < 18'},
+{t:'6-тапсырма: Жыл мезгілі (or)',d:'m — ай нөмірі. m 12, 1 немесе 2 болса «Қыс», әйтпесе «Қыс емес» деп шығар.',v:'m',tests:[12,1,2,3,7,11],exp:m=>m==12||m==1||m==2?'Қыс':'Қыс емес',start:'',hint:'if m == 12 or m == 1 or m == 2:  — әр жағын толық жазыңыз.'},
+{t:'7-тапсырма: Екі сан',d:'a > b болса «Бірінші үлкен», a < b болса «Екінші үлкен», тең болса «Тең» деп шығар.',v:'a,b',tests:[[5,3],[2,9],[4,4],[-1,-5]],exp:(a,b)=>a>b?'Бірінші үлкен':a<b?'Екінші үлкен':'Тең',start:'',hint:'if a > b:, elif a < b:, else: — үш жағдай.'},
+{t:'8-тапсырма: Қардағы ішкі if',d:'x ≥ 0 болса: жұп болса «Теріс емес жұп», тақ болса «Теріс емес тақ». x < 0 болса «Теріс» деп шығар.',v:'x',tests:[4,7,0,-3],exp:x=>x>=0?(x%2==0?'Теріс емес жұп':'Теріс емес тақ'):'Теріс',start:'if x >= 0:\n    if x % 2 == 0:\n        \n    else:\n        \nelse:\n    ',hint:'Ішкі if-тің шегінісі 8 бос орын болады (4 + 4).'},
+{t:'9-тапсырма: Бағдаршам',d:'color мәтіні "red" болса «Тоқта», "yellow" болса «Дайындал», "green" болса «Жүр», басқа жағдайда «Қате» деп шығар.',v:'color',tests:['red','yellow','green','blue'],exp:c=>c=='red'?'Тоқта':c=='yellow'?'Дайындал':c=='green'?'Жүр':'Қате',start:'',hint:'Мәтінді тырнақшада жазыңыз: color == "red". Бірнеше elif қолдануға болады.'},
+{t:'10-тапсырма: Қар патшасы — үшбұрыш',d:'Қабылғалар a, b, c. Егер a+b>c, a+c>b, b+c>a үшеуі де орындалса — үшбұрыш бар: үшеуі тең болса «Тең қабырғалы», екеуі тең болса «Тең бүйірлі», әйтпесе «Әртүрлі». Үшбұрыш болмаса «Үшбұрыш емес» деп шығар.',v:'a,b,c',tests:[[3,3,3],[3,3,5],[3,4,5],[1,2,3],[5,5,1]],exp:(a,b,c)=>!(a+b>c&&a+c>b&&b+c>a)?'Үшбұрыш емес':a==b&&b==c?'Тең қабырғалы':a==b||b==c||a==c?'Тең бүйірлі':'Әртүрлі',start:'if a + b > c and a + c > b and b + c > a:\n    \nelse:\n    ',hint:'Сыртқы if — үшбұрыш бар ма? Ішінде: if a == b and b == c: ... elif a == b or b == c or a == c: ... else: ... (шегініс 8 бос орын).'}];
+/* ---------- 3D дүние ---------- */
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x87ceeb);scene.fog=new THREE.Fog(0x87ceeb,15,70);
+const cam=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,100);cam.rotation.order='YXZ';
+const R=new THREE.WebGLRenderer({antialias:false});R.setSize(innerWidth,innerHeight);document.body.prepend(R.domElement);
+addEventListener('resize',()=>{R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()});
+scene.add(new THREE.AmbientLight(0xffffff,.65));const sun=new THREE.DirectionalLight(0xffffff,.6);sun.position.set(5,10,3);scene.add(sun);
+function tex(base,fn){const c=document.createElement('canvas');c.width=c.height=16;const x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,16,16);fn&&fn(x);const t=new THREE.CanvasTexture(c);t.magFilter=t.minFilter=THREE.NearestFilter;t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+const nz=c=>x=>{for(let i=0;i<70;i++){x.fillStyle=c[i%c.length];x.fillRect(Math.random()*16|0,Math.random()*16|0,2,2)}};
+const T={hub:tex('#8f8f80',x=>{x.fillStyle='#6b6b5e';for(let i=0;i<16;i+=5){x.fillRect(0,i,16,1);x.fillRect(i*3%16,i,1,5)}}),
+grass:tex('#2f7d32',nz(['#256b28','#49a04a','#e8d44d','#256b28'])),wood:tex('#8a5a2b',x=>{x.fillStyle='#5e3b19';for(let i=0;i<16;i+=4)x.fillRect(0,i,16,1)}),
+sand:tex('#e8b04a',x=>{x.fillStyle='#c98a2b';for(let i=2;i<16;i+=5)x.fillRect(0,i,16,2);nz(['#f6cf7a'])(x)}),snow:tex('#eef6ff',nz(['#cfe3f7','#fff','#b8d4ee'])),
+ice:tex('#8fd3f4',x=>{x.fillStyle='#d6f2ff';x.fillRect(2,3,6,1);x.fillRect(9,9,5,1)}),
+term:tex('#10331c',x=>{x.fillStyle='#4f4';x.font='bold 9px monospace';x.fillText('</>',0,11)}),cloud:tex('#fff')};
+const boxes=[];
+function box(x,y,z,w,h,d,t,solid=true){const c=t.clone();c.needsUpdate=true;c.repeat.set(Math.max(1,w/1.5|0),Math.max(1,d/1.5|0));
+const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({map:c}));m.position.set(x,y,z);scene.add(m);
+let b=null;if(solid){b={x0:x-w/2,x1:x+w/2,y0:y-h/2,y1:y+h/2,z0:z-d/2,z1:z+d/2};boxes.push(b)}return{m,b}}
+const plat=(x,z,w,d,top,t)=>box(x,top-1.5,z,w,3,d,t);
+const BT=[{c:'#2e7d32',s:2.4,hp:2,z:1.4},{c:'#6b6b6b',s:2.2,hp:3,z:1.7,ch:1},{c:'#d98e04',s:2.8,hp:3,z:1.8,j:1},{c:'#b5651d',s:2,hp:5,z:2.4,dm:2},{c:'#7ec8e3',s:3.2,hp:5,z:2.4,ch:1,dm:2},{c:'#4a3b8f',s:2.6,hp:9,z:3.2,j:1,dm:2,k:1}];
+BT.forEach(b=>b.t=tex(b.c,x=>{x.fillStyle='#fff';x.fillRect(3,5,3,3);x.fillRect(10,5,3,3);x.fillStyle='#c00';x.fillRect(4,6,2,2);x.fillRect(11,6,2,2);x.fillStyle='#000';x.fillRect(3,11,10,2);x.fillStyle='#fff';x.fillRect(4,11,1,2);x.fillRect(7,11,1,2);x.fillRect(10,11,1,2);if(b.k){x.fillStyle='#ffd23f';x.fillRect(1,0,14,2)}}));
+const sign=(x,z,txt,ry)=>{const c=document.createElement('canvas');c.width=128;c.height=32;const g=c.getContext('2d');g.fillStyle='#5b3a1a';g.fillRect(0,0,128,32);g.fillStyle='#fff';g.font='bold 18px sans-serif';g.textAlign='center';g.fillText(txt,64,23);
+const m=new THREE.Mesh(new THREE.BoxGeometry(4,1,.2),new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(c)}));m.position.set(x,2.2,z);m.rotation.y=ry;scene.add(m)};
+const arenas=[],terms=[],enemies=[];
+const stones=(a,t)=>a.forEach(q=>plat(q[0],q[1],q[2],q[3],q[4],t));
+const mkTerm=(x,y,zz)=>{box(x,y+.7,zz,1,1.4,.6,T.term,false);const s=new THREE.Mesh(new THREE.OctahedronGeometry(.4),new THREE.MeshLambertMaterial({color:0x666666}));s.position.set(x,y+2.2,zz);scene.add(s);terms.push({x,y,z:zz,s,done:false,i:terms.length})};
+const tree=(x,z,y)=>{box(x,y+1.5,z,.8,3,.8,T.wood,false);box(x,y+3.5,z,2.6,2,2.6,T.grass,false)};
+function arena(cx,cz,y,t,types){plat(cx,cz,12,12,y,t);arenas.push({x:cx,y,z:cz});mkTerm(cx,y,cz+3);if(t==T.grass){tree(cx-5,cz-5,y);tree(cx+5,cz-5,y)}
+types.forEach(ti=>{const b=BT[ti],x=cx+Math.random()*8-4,ez=cz-4+Math.random()*5-1,m=box(x,y+b.z/2,ez,b.z,b.z,b.z,b.t,false).m;enemies.push({m,b,hx:x,hy:y,hz:ez,ax:cx,zc:cz,x,z:ez,hp:b.hp,alive:true,i:enemies.length})})}
+for(let i=0;i<22;i++)box(Math.random()*180-90,40+Math.random()*6,10-Math.random()*130,10,2,6,T.cloud,false);
+plat(0,0,14,14,0,T.hub);arenas.push({x:0,y:0,z:0});mkTerm(0,0,1);
+sign(-5,0,'🌲 ОРМАН ←',Math.PI/2);sign(5,0,'→ ШӨЛ 🏜️',-Math.PI/2);sign(0,-5,'↑ ҚАР ❄️',0);
+for(let y=0;y<7;y++)box(0,y+.5,5.5,3,1,3,T.hub,false);
+/* Батыс: Орман */
+stones([[-11,2,3,3,.5],[-15,-2,3,3,1],[-19,2,3,3,1.5],[-23,0,2,2,2]],T.wood);arena(-31,0,2,T.grass,[0,0]);
+plat(-41.5,0,9,1.2,2,T.wood);arena(-52,0,2,T.grass,[0,1,1]);
+stones([[-52,-9.5,3,3,3],[-52,-13.5,3,3,4],[-52,-17.5,3,3,5]],T.wood);arena(-52,-25,5,T.grass,[1,1,0]);
+/* Шығыс: Шөл */
+stones([[11,-1,2,2,1],[14.5,1,2,2,2],[18,-1,2,2,3],[21.5,1,2,2,4]],T.sand);arena(29,0,4,T.sand,[2,2]);
+stones([[39,0,2,2,3.5],[44,0,2,2,2.5],[49,0,2,2,1.5]],T.sand);arena(57,0,1,T.sand,[2,3,2]);
+stones([[60,-9,2,2,2],[64,-13,2,2,3],[60,-17,2,2,4],[56,-21,2,2,5]],T.sand);arena(56,-30,5,T.sand,[3,3,2]);
+/* Солтүстік: Қар */
+plat(0,-12,1.2,10,0,T.ice);stones([[2.5,-20,1.5,1.5,.5],[-1,-24,1.5,1.5,1],[2.5,-28,1.5,1.5,1.5]],T.ice);arena(0,-37,2,T.snow,[4,4]);
+stones([[0,-47,1.5,1.5,2.5],[0,-51.5,1.5,1.5,3],[0,-56,1.5,1.5,3.5],[0,-60.5,1.5,1.5,4]],T.ice);arena(0,-69,4,T.snow,[4,4,2]);
+stones([[3,-78.5,2,2,5],[7,-81.5,2,2,6],[10,-85.5,2,2,6.5]],T.ice);arena(8,-95,7,T.snow,[5,4,4]);
+const P={x:0,y:0,z:3,vy:0,yaw:0,pitch:0,hp:3,cd:0,ground:false},CP={x:0,y:0,z:3},HH=1.7,RR=.3,E=1e-4;
+let deaths=0,stars=0,ui=true,locked=false,t0=0;const K={};
+const hit=()=>boxes.find(b=>P.x+RR>b.x0&&P.x-RR<b.x1&&P.y+HH>b.y0+E&&P.y<b.y1-E&&P.z+RR>b.z0&&P.z-RR<b.z1);
+function respawn(){P.x=CP.x;P.y=CP.y+.1;P.z=CP.z;P.vy=0}
+function hud(){if(deaths){const d=$('deaths');d.classList.remove('hide');if(d.dataset.n!=deaths){d.dataset.n=deaths;d.style.animation='none';d.offsetWidth;d.style.animation='pop .6s'}d.textContent='💀 '+deaths}$('hud').textContent='❤️'.repeat(Math.max(P.hp,0))+'  ⭐ '+stars+'/10'}
+function say(s,ms=1800){$('msg').textContent=s;clearTimeout(say.t);say.t=setTimeout(()=>$('msg').textContent='',ms)}
+/* Енгізу */
+$('go').onclick=()=>{$('intro').classList.add('hide');ui=false;R.domElement.requestPointerLock()};
+document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===R.domElement;if(!locked&&!ui&&!$('win').offsetParent){ui=true;$('go').textContent='Жалғастыру';$('intro').classList.remove('hide')}});
+document.addEventListener('mousemove',e=>{if(!locked)return;P.yaw-=e.movementX*.0025;P.pitch=Math.max(-1.5,Math.min(1.5,P.pitch-e.movementY*.0025))});
+addEventListener('keydown',e=>{if(ui&&e.target.id!='code')return;if(e.target.id=='code'){if(e.key=='Tab'){e.preventDefault();document.execCommand('insertText',false,'    ')}return}
+K[e.code]=true;if(e.code=='KeyE')openTerm();if(e.code=='KeyF')attack();if(e.code=='Space')e.preventDefault()});
+addEventListener('keyup',e=>K[e.code]=false);
+addEventListener('mousedown',()=>{if(locked)attack()});
+function attack(){for(const e of enemies){if(!e.alive)continue;const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz);
+if(d<3.4&&(dx*-Math.sin(P.yaw)+dz*-Math.cos(P.yaw))/d>.2&&Math.abs(P.y-e.hy)<2.5){hurt(e);return}}}
+function hurt(e){if(--e.hp<=0){kill(e);say('Құбыжық жойылды! 💥')}else{e.m.scale.multiplyScalar(.93);say('Соққы! Қалды: '+e.hp+' ❤')}}
+function ouch(n,m){P.hp-=n;P.cd=1;say(m,1200);if(P.hp<=0){P.hp=3;deaths++;respawn();say('💀 Үш жүрек те кетті... қайта бастаймыз',2200)}hud()}
+function kill(e){e.alive=false;scene.remove(e.m)}
+let cur=null;
+function nearTerm(){return terms.find(t=>!t.done&&Math.hypot(t.x-P.x,t.z-P.z)<2.8&&Math.abs(t.y-P.y)<2)}
+const nm=k=>k.v.split(','),vs=(k,v)=>{const a=[].concat(v),o={};nm(k).forEach((n,i)=>o[n]=a[i]);return o},fq=x=>typeof x=='string'?JSON.stringify(x):x,sh=(k,v)=>{const a=[].concat(v);return nm(k).map((n,i)=>n+' = '+fq(a[i])).join(', ')};
+function openTerm(){const t=nearTerm();if(!t||ui)return;cur=t;const k=TASKS[t.i];ui=true;document.exitPointerLock();
+$('tt').textContent=k.t;$('td').textContent=k.d;$('th').textContent='# Тексеру кезінде айнымалылар әртүрлі мән алады. Мысалы: '+sh(k,k.tests[0]);
+$('code').value=k.start;$('out').textContent='';$('panel').classList.remove('hide');$('code').focus()}
+$('cl').onclick=()=>{$('panel').classList.add('hide');ui=false;R.domElement.requestPointerLock()};
+function exec(v){return py($('code').value,vs(TASKS[cur.i],v))}
+$('run').onclick=()=>{const k=TASKS[cur.i],v=k.tests[0];try{$('out').className='';$('out').textContent=sh(k,v)+' болғанда нәтиже:\n'+exec(v)}catch(e){$('out').className='bad';$('out').textContent='Қате: '+e.message}};
+$('hint').onclick=()=>{$('out').className='';$('out').textContent='💡 '+TASKS[cur.i].hint};
+$('chk').onclick=()=>{const k=TASKS[cur.i];try{for(const v of k.tests){const r=exec(v),e=k.exp(...[].concat(v));if(r!==e){$('out').className='bad';$('out').textContent='❌ '+sh(k,v)+' болғанда күтілген: «'+e+'», сенің нәтижең: «'+r+'»';return}}}
+catch(e){$('out').className='bad';$('out').textContent='Қате: '+e.message;return}
+$('out').className='ok';$('out').textContent='✅ Дұрыс! Барлық тесттер өтті. Жұлдыз алдың! ⭐';const t=cur;t.done=true;stars++;t.s.material.color.setHex(0xffd23f);P.hp=3;hud();
+setTimeout(()=>{$('panel').classList.add('hide');if(stars==10){ui=true;$('wd').textContent='💀 Өлім саны: '+deaths;$('win').classList.remove('hide')}else{ui=false;R.domElement.requestPointerLock();say('Жұлдыз алынды! Келесі жолды өзің таңда',3000)}},1200)};
+/* Ойын циклі */
+let last=performance.now();
+function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.05);last=now;t0+=dt;
+terms.forEach(t=>{t.s.rotation.y+=dt*2;t.s.position.y=t.y+2.2+Math.sin(t0*2)*.15});
+if(!ui){const sp=6,fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw),rx=Math.cos(P.yaw),rz=-Math.sin(P.yaw);
+let mx=(K.KeyW?1:0)-(K.KeyS?1:0),mr=(K.KeyD?1:0)-(K.KeyA?1:0);const n=Math.hypot(mx,mr)||1;
+const vx=(fx*mx+rx*mr)/n*sp,vz=(fz*mx+rz*mr)/n*sp;
+P.x+=vx*dt;if(hit())P.x-=vx*dt;P.z+=vz*dt;if(hit())P.z-=vz*dt;
+if(K.Space&&P.ground){P.vy=8.2;P.ground=false}P.vy-=22*dt;P.y+=P.vy*dt;P.ground=false;
+const b=hit();if(b){if(P.vy<0){P.y=b.y1;P.ground=true}else P.y=b.y0-HH;P.vy=0}
+if(P.y<CP.y-12){respawn();ouch(1,'Құлап кеттің! −1 ❤')}
+P.cd-=dt;if(P.ground){const a=arenas.find(a=>Math.abs(P.x-a.x)<5&&Math.abs(P.z-a.z)<5&&Math.abs(P.y-a.y)<.3);if(a){CP.x=a.x;CP.y=a.y;CP.z=a.z}}
+for(const e of enemies){if(!e.alive)continue;const dx=P.x-e.x,dz=P.z-e.z,d=Math.hypot(dx,dz),sz=e.b.z;let tx,tz,sp=e.b.s;
+if(d<12&&Math.abs(P.y-e.hy)<3){tx=P.x;tz=P.z;if(e.b.ch){e.t=(e.t||0)+dt;if(e.t%3>2.3)sp*=2.6}}else{tx=e.hx+Math.sin(t0+e.i)*3;tz=e.hz+Math.cos(t0*.8+e.i)*3}
+const ax=tx-e.x,az=tz-e.z,ad=Math.hypot(ax,az)||1,st=Math.min(sp*dt,ad);e.x=Math.max(e.ax-5,Math.min(e.ax+5,e.x+ax/ad*st));e.z=Math.max(e.zc-5,Math.min(e.zc+5,e.z+az/ad*st));
+const ey=e.hy+sz/2+(e.b.j?Math.abs(Math.sin(t0*2.5+e.i))*1.6:Math.abs(Math.sin(t0*4+e.i))*.15);e.m.position.set(e.x,ey,e.z);e.m.rotation.y+=dt;
+if(d<sz/2+.45&&P.y<ey+sz/2+.3&&P.y>e.hy-1.2){if(P.vy<0&&P.y>ey+sz*.15){hurt(e);P.vy=7.5}
+else if(P.cd<=0){P.x+=dx/(d||1)*1.5;P.z+=dz/(d||1)*1.5;ouch(e.b.dm||1,'Құбыжық тістеді! 💢')}}}
+const nt=nearTerm();if(nt)$('msg').textContent='E — терминалды ашу ('+(nt.i+1)+'-тапсырма)';else if($('msg').textContent.startsWith('E —'))$('msg').textContent=''}
+cam.position.set(P.x,P.y+1.6,P.z);cam.rotation.set(P.pitch,P.yaw,0);R.render(scene,cam)}
+hud();requestAnimationFrame(loop);
+</script></body></html>
